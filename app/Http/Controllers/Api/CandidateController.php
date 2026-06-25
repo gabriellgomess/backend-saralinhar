@@ -275,11 +275,12 @@ class CandidateController extends Controller
     public function mapStats()
     {
         try {
-            // Encontra cidades únicas nos candidatos
-            $uniqueCities = Candidate::select('city')
+            // Encontra cidades únicas nos candidatos ordenadas por número de candidatos (descendente)
+            $uniqueCities = Candidate::select('city', \DB::raw('count(*) as count'))
                 ->whereNotNull('city')
                 ->where('city', '!=', '')
-                ->distinct()
+                ->groupBy('city')
+                ->orderBy('count', 'desc')
                 ->pluck('city')
                 ->toArray();
 
