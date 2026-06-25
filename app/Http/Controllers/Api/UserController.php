@@ -27,6 +27,11 @@ class UserController extends Controller
             $query->where('role', $request->role);
         }
 
+        if ($request->boolean('all')) {
+            $users = $query->orderBy('name')->get();
+            return response()->json($users);
+        }
+
         $users = $query->orderBy('created_at', 'desc')->paginate(10);
 
         return response()->json($users);
