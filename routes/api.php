@@ -166,6 +166,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/culture-fit/tokens/{id}/cancel', [CultureFitTestTokenController::class, 'cancel']); // Cancelar token
     Route::delete('/culture-fit/tokens/{id}', [CultureFitTestTokenController::class, 'destroy']); // Excluir token
 
+    // Pareceres PDFs acessíveis para todos autenticados (incluindo clientes)
+    Route::get('candidate-reports/{id}/pdf', [\App\Http\Controllers\Api\CandidateReportController::class, 'downloadPdf']);
+    Route::get('candidate-reports/{id}/player-pdf', [\App\Http\Controllers\Api\CandidateReportController::class, 'downloadPlayerPdf']);
+    Route::get('player-reports/{id}/pdf', [\App\Http\Controllers\Api\PlayerReportController::class, 'downloadPdf']);
+
     // Rotas administrativas (bloqueadas para perfil 'client')
     Route::middleware('block_roles:client')->group(function () {
         // Gerenciamento de Clientes e Atividades
@@ -219,8 +224,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('candidate-reports/interviewers', [\App\Http\Controllers\Api\CandidateReportController::class, 'interviewers']);
         Route::apiResource('candidate-reports', \App\Http\Controllers\Api\CandidateReportController::class);
         Route::get('candidate-reports/{id}/audio', [\App\Http\Controllers\Api\CandidateReportController::class, 'streamAudio']);
-        Route::get('candidate-reports/{id}/pdf', [\App\Http\Controllers\Api\CandidateReportController::class, 'downloadPdf']);
-        Route::get('candidate-reports/{id}/player-pdf', [\App\Http\Controllers\Api\CandidateReportController::class, 'downloadPlayerPdf']);
         Route::post('candidate-reports/{id}/regenerate', [\App\Http\Controllers\Api\CandidateReportController::class, 'regenerate']);
 
         // Pareceres Player (Consultoria Player)
@@ -228,7 +231,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('player-reports/interviewers', [\App\Http\Controllers\Api\PlayerReportController::class, 'interviewers']);
         Route::apiResource('player-reports', \App\Http\Controllers\Api\PlayerReportController::class);
         Route::get('player-reports/{id}/audio', [\App\Http\Controllers\Api\PlayerReportController::class, 'streamAudio']);
-        Route::get('player-reports/{id}/pdf', [\App\Http\Controllers\Api\PlayerReportController::class, 'downloadPdf']);
         Route::post('player-reports/{id}/regenerate', [\App\Http\Controllers\Api\PlayerReportController::class, 'regenerate']);
 
         // Fluxo Conversacional de Pareceres (Modo Experimental)
