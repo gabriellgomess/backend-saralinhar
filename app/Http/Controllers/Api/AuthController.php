@@ -57,6 +57,30 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
+        // Opcional: Validar Cloudflare Turnstile se a chave secreta estiver configurada no .env
+        $turnstileSecret = env('TURNSTILE_SECRET_KEY');
+        if ($turnstileSecret) {
+            $token = $request->input('turnstile_token');
+
+            if (!$token) {
+                throw ValidationException::withMessages([
+                    'turnstile' => ['A validação de segurança é obrigatória.'],
+                ]);
+            }
+
+            $response = \Illuminate\Support\Facades\Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => $turnstileSecret,
+                'response' => $token,
+                'remoteip' => $request->ip(),
+            ]);
+
+            if (!$response->successful() || !$response->json('success')) {
+                throw ValidationException::withMessages([
+                    'turnstile' => ['Falha na verificação de segurança (Captcha). Tente novamente.'],
+                ]);
+            }
+        }
+
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {

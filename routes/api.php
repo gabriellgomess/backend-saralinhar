@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 
 // Rotas públicas
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
 // Rotas públicas de vagas (feed)
 Route::get('/jobs', [JobController::class, 'index']);
