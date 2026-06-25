@@ -270,6 +270,101 @@ class CandidateController extends Controller
     }
 
     /**
+     * Retorna a lista de candidatos com suas respectivas coordenadas geográficas.
+     */
+    public function mapStats()
+    {
+        try {
+            // Encontra cidades únicas nos candidatos
+            $uniqueCities = Candidate::select('city')
+                ->whereNotNull('city')
+                ->where('city', '!=', '')
+                ->distinct()
+                ->pluck('city')
+                ->toArray();
+
+            // Identifica quais precisam de geocodificação
+            $cachedCities = \App\Models\CityGeocode::pluck('city')->toArray();
+            $missingCities = array_diff(array_map('trim', $uniqueCities), $cachedCities);
+
+            // Geocodifica até 10 novas cidades por requisição para evitar timeouts
+            $geocodedCount = 0;
+            foreach ($missingCities as $city) {
+                if ($geocodedCount >= 10) break;
+                $this->geocodeCity($city);
+                $geocodedCount++;
+            }
+
+            // Busca candidatos com suas coordenadas correspondentes
+            $candidatesWithCoords = Candidate::select(
+                    'candidates.id',
+                    'candidates.name',
+                    'candidates.email',
+                    'candidates.phone',
+                    'candidates.city',
+                    'candidates.professional_area',
+                    'city_geocodes.latitude',
+                    'city_geocodes.longitude'
+                )
+                ->join('city_geocodes', 'candidates.city', '=', 'city_geocodes.city')
+                ->whereNotNull('city_geocodes.latitude')
+                ->whereNotNull('city_geocodes.longitude')
+                ->get();
+
+            return response()->json($candidatesWithCoords, 200);
+        } catch (\Exception $e) {
+            Log::error('Erro ao buscar map-stats dos candidatos', ['error' => $e->getMessage()]);
+            return response()->json([
+                'message' => 'Erro ao carregar mapa de candidatos',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Auxiliar para geocodificar uma cidade via OpenStreetMap Nominatim
+     */
+    private function geocodeCity($city)
+    {
+        try {
+            $client = new \GuzzleHttp\Client();
+            $response = $client->get('https://nominatim.openstreetmap.org/search', [
+                'query' => [
+                    'q' => $city . ', Brazil', // Força busca no Brasil
+                    'format' => 'json',
+                    'limit' => 1
+                ],
+                'headers' => [
+                    'User-Agent' => 'SaraLinharMap/1.0 (contato@saralinhar.com.br)'
+                ],
+                'timeout' => 5
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+            if (!empty($data) && isset($data[0])) {
+                $lat = (float) $data[0]['lat'];
+                $lon = (float) $data[0]['lon'];
+
+                return \App\Models\CityGeocode::create([
+                    'city' => $city,
+                    'latitude' => $lat,
+                    'longitude' => $lon
+                ]);
+            }
+
+            // Cache negativo: registra nulo para cidades não encontradas para não repetir requisições
+            return \App\Models\CityGeocode::create([
+                'city' => $city,
+                'latitude' => null,
+                'longitude' => null
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Falha na geocodificação da cidade: {$city}. Erro: " . $e->getMessage());
+            return null; // Não salva cache negativo em caso de erro de rede para tentar novamente
+        }
+    }
+
+    /**
      * Retorna candidaturas de uma vaga específica
      */
     public function getApplicationsByJob($jobId)

@@ -100,6 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ATENÇÃO: Rotas com segmentos literais DEVEM vir antes de /candidates/{id}
     Route::get('/candidates', [CandidateController::class, 'index']); // Banco de Currículos
     Route::get('/candidates/professional-areas', [CandidateController::class, 'professionalAreas']);
+    Route::get('/candidates/map-stats', [CandidateController::class, 'mapStats']);
 
     // Extração e importação em lote (apenas equipe interna)
     Route::middleware('block_roles:client')->group(function () {
