@@ -66,7 +66,7 @@ class FinancialController extends Controller
     /**
      * Listar todos os lançamentos/faturamentos (apenas Admin).
      */
-    public function listTransactions(Request $request)
+    public function index(Request $request)
     {
         if (Auth::user()->role !== 'admin') {
             return response()->json(['message' => 'Acesso negado'], 403);
@@ -90,7 +90,7 @@ class FinancialController extends Controller
     /**
      * Criar um lançamento manualmente com os splits dos recrutadores (apenas Admin).
      */
-    public function storeTransaction(Request $request)
+    public function store(Request $request)
     {
         if (Auth::user()->role !== 'admin') {
             return response()->json(['message' => 'Acesso negado'], 403);
@@ -133,7 +133,7 @@ class FinancialController extends Controller
     /**
      * Exibir detalhes de um lançamento específico.
      */
-    public function showTransaction($id)
+    public function show($id)
     {
         if (Auth::user()->role !== 'admin') {
             return response()->json(['message' => 'Acesso negado'], 403);
@@ -146,7 +146,7 @@ class FinancialController extends Controller
     /**
      * Atualizar dados de um lançamento e sincronizar comissões (apenas Admin).
      */
-    public function updateTransaction(Request $request, $id)
+    public function update(Request $request, $id)
     {
         if (Auth::user()->role !== 'admin') {
             return response()->json(['message' => 'Acesso negado'], 403);
@@ -195,7 +195,7 @@ class FinancialController extends Controller
     /**
      * Excluir um lançamento (apenas Admin).
      */
-    public function destroyTransaction($id)
+    public function destroy($id)
     {
         if (Auth::user()->role !== 'admin') {
             return response()->json(['message' => 'Acesso negado'], 403);
