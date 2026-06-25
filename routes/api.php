@@ -274,6 +274,22 @@ Route::middleware('auth:sanctum')->group(function () {
         // Logs de Auditoria
         Route::get('audit-logs', [\App\Http\Controllers\Api\TestAuditLogController::class, 'index']);
         Route::get('audit-logs/filters', [\App\Http\Controllers\Api\TestAuditLogController::class, 'filters']);
+
+        // Rotas do Módulo Financeiro
+        Route::prefix('financial')->group(function () {
+            Route::get('/stats', [\App\Http\Controllers\Api\FinancialController::class, 'dashboardStats']);
+            Route::get('/commissions', [\App\Http\Controllers\Api\FinancialController::class, 'listCommissions']);
+            Route::get('/services', [\App\Http\Controllers\Api\FinancialController::class, 'listServices']);
+            
+            // Bloqueado para recrutadores comuns (operational) e clientes (client)
+            Route::middleware('block_roles:operational,client')->group(function () {
+                Route::apiResource('/transactions', \App\Http\Controllers\Api\FinancialController::class);
+                Route::post('/services', [\App\Http\Controllers\Api\FinancialController::class, 'storeService']);
+                Route::put('/services/{id}', [\App\Http\Controllers\Api\FinancialController::class, 'updateService']);
+                Route::delete('/services/{id}', [\App\Http\Controllers\Api\FinancialController::class, 'destroyService']);
+                Route::patch('/commissions/{id}/status', [\App\Http\Controllers\Api\FinancialController::class, 'updateCommissionStatus']);
+            });
+        });
     });
 });
 

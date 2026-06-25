@@ -535,6 +535,41 @@ class JobController extends Controller
                 'user_id' => \Illuminate\Support\Facades\Auth::id(),
                 'comment' => "Movimentação: {$userName} moveu o candidato de \"{$oldStageName}\" para \"{$newStageName}\".",
             ]);
+
+            // Hook do Módulo Financeiro: Auto-criar rascunho de faturamento se contratado
+            if ($newStage === 'hired') {
+                try {
+                    $candidate = $application->candidate;
+                    $client = null;
+                    if ($job->user && $job->user->recruitment_client_id) {
+                        $client = \App\Models\RecruitmentClient::find($job->user->recruitment_client_id);
+                    }
+                    if (!$client && $job->company) {
+                        $client = \App\Models\RecruitmentClient::where('name', 'like', '%' . $job->company . '%')->first();
+                    }
+
+                    $commissionPct = $client ? (float) $client->commission_percentage : 0;
+                    $salary = $job->salary ? (float) $job->salary : 0;
+                    $amount = $commissionPct > 0 ? ($salary * ($commissionPct / 100)) : 0;
+
+                    if ($client) {
+                        \App\Models\FinancialTransaction::create([
+                            'client_id' => $client->id,
+                            'type' => 'recruitment',
+                            'description' => "Contratação: " . ($candidate ? $candidate->name : 'Candidato') . " - Vaga: {$job->title}",
+                            'amount' => $amount,
+                            'due_date' => now()->addDays(30), // Vencimento padrão de 30 dias
+                            'job_id' => $job->id,
+                            'candidate_id' => $candidate ? $candidate->id : null,
+                            'candidate_salary' => $salary,
+                            'commission_percentage' => $commissionPct,
+                            'status' => 'pending'
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Erro ao auto-criar rascunho financeiro: ' . $e->getMessage());
+                }
+            }
         }
         
         return response()->json([

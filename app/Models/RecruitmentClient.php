@@ -9,6 +9,7 @@ class RecruitmentClient extends Model
     protected $fillable = [
         'name',
         'is_player',
+        'commission_percentage',
         'type',
         'cnpj_cpf',
         'contact_name',
