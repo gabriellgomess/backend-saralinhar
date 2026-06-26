@@ -140,6 +140,15 @@ class JobController extends Controller
 
         $job = Job::create($validated);
 
+        // Auto-criar faturamento se a vaga já estiver ativa/aprovada (ex: criada por Admin)
+        if ($job->approval_status !== 'pending' && $job->is_active) {
+            try {
+                \App\Models\FinancialTransaction::autoCreateForJob($job);
+            } catch (\Exception $e) {
+                Log::error('Erro ao auto-criar transação financeira para vaga no store: ' . $e->getMessage());
+            }
+        }
+
         // Enviar vaga para WhatsApp via Evolution API
         try {
             $jobData = $job->load(['user:id,name,email', 'category:id,name,slug'])->toArray();
@@ -463,6 +472,13 @@ class JobController extends Controller
             'is_confidential' => $validated['is_confidential'] ?? $job->is_confidential,
         ]);
 
+        // Auto-criar faturamento ao aprovar a vaga
+        try {
+            \App\Models\FinancialTransaction::autoCreateForJob($job);
+        } catch (\Exception $e) {
+            Log::error('Erro ao auto-criar transação financeira para vaga no approve: ' . $e->getMessage());
+        }
+
         return response()->json([
             'message' => 'Vaga aprovada com sucesso.',
             'job' => $job->load(['user:id,name,email,role', 'category:id,name,slug']),
@@ -536,7 +552,7 @@ class JobController extends Controller
                 'comment' => "Movimentação: {$userName} moveu o candidato de \"{$oldStageName}\" para \"{$newStageName}\".",
             ]);
 
-            // Hook do Módulo Financeiro: Auto-criar rascunho de faturamento se contratado
+            // Hook do Módulo Financeiro: Atualiza ou cria o faturamento ao contratar o candidato
             if ($newStage === 'hired') {
                 try {
                     $candidate = $application->candidate;
@@ -552,22 +568,40 @@ class JobController extends Controller
                     $salary = $job->salary ? (float) $job->salary : 0;
                     $amount = $commissionPct > 0 ? ($salary * ($commissionPct / 100)) : 0;
 
-                    if ($client) {
+                    // Busca se já existe um lançamento criado ao abrir a vaga
+                    $transaction = \App\Models\FinancialTransaction::where('job_id', $job->id)->first();
+
+                    if ($transaction) {
+                        $transaction->update([
+                            'candidate_id' => $candidate ? $candidate->id : null,
+                            'candidate_contact' => $candidate ? ($candidate->phone ?? $candidate->email) : null,
+                            'admission_date' => now(),
+                            'warranty_ends_at' => now()->addDays(45),
+                            'description' => "Faturamento da Vaga: {$job->title} - Contratado: " . ($candidate ? $candidate->name : 'N/A'),
+                            'amount' => $amount > 0 ? $amount : $transaction->amount,
+                            'candidate_salary' => $salary > 0 ? $salary : $transaction->candidate_salary,
+                            'commission_percentage' => $commissionPct > 0 ? $commissionPct : $transaction->commission_percentage,
+                        ]);
+                    } else if ($client) {
+                        // Caso não exista (vagas legadas), cria um novo
                         \App\Models\FinancialTransaction::create([
                             'client_id' => $client->id,
                             'type' => 'recruitment',
                             'description' => "Contratação: " . ($candidate ? $candidate->name : 'Candidato') . " - Vaga: {$job->title}",
                             'amount' => $amount,
-                            'due_date' => now()->addDays(30), // Vencimento padrão de 30 dias
+                            'due_date' => now()->addDays(30),
+                            'admission_date' => now(),
+                            'warranty_ends_at' => now()->addDays(45),
                             'job_id' => $job->id,
                             'candidate_id' => $candidate ? $candidate->id : null,
+                            'candidate_contact' => $candidate ? ($candidate->phone ?? $candidate->email) : null,
                             'candidate_salary' => $salary,
                             'commission_percentage' => $commissionPct,
                             'status' => 'pending'
                         ]);
                     }
                 } catch (\Exception $e) {
-                    Log::error('Erro ao auto-criar rascunho financeiro: ' . $e->getMessage());
+                    Log::error('Erro ao auto-criar/atualizar rascunho financeiro: ' . $e->getMessage());
                 }
             }
         }

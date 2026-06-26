@@ -12,13 +12,28 @@ class FinancialTransaction extends Model
         'description',
         'amount',
         'due_date',
+        'admission_date',
+        'warranty_ends_at',
         'payment_date',
         'status',
+        'is_warranty_replacement',
         'job_id',
         'candidate_id',
+        'candidate_contact',
         'candidate_salary',
         'commission_percentage',
         'financial_service_id'
+    ];
+
+    protected $casts = [
+        'due_date' => 'date',
+        'admission_date' => 'date',
+        'warranty_ends_at' => 'date',
+        'payment_date' => 'date',
+        'is_warranty_replacement' => 'boolean',
+        'amount' => 'decimal:2',
+        'candidate_salary' => 'decimal:2',
+        'commission_percentage' => 'decimal:2',
     ];
 
     public function client()
@@ -44,5 +59,45 @@ class FinancialTransaction extends Model
     public function recruiterCommissions()
     {
         return $this->hasMany(FinancialRecruiterCommission::class);
+    }
+
+    /**
+     * Auto-cria um faturamento ao abrir/aprovar uma vaga.
+     */
+    public static function autoCreateForJob(Job $job)
+    {
+        // Evita duplicados
+        if (self::where('job_id', $job->id)->exists()) {
+            return null;
+        }
+
+        $client = null;
+        if ($job->user && $job->user->recruitment_client_id) {
+            $client = RecruitmentClient::find($job->user->recruitment_client_id);
+        }
+        if (!$client && $job->company) {
+            $client = RecruitmentClient::where('name', 'like', '%' . $job->company . '%')->first();
+        }
+
+        if (!$client) {
+            \Illuminate\Support\Facades\Log::warning("Não foi possível auto-criar transação financeira para vaga ID {$job->id}: nenhum cliente RecruitmentClient correspondente a '{$job->company}' foi encontrado.");
+            return null;
+        }
+
+        $commissionPct = (float) ($client->commission_percentage ?? 0);
+        $salary = (float) ($job->salary ?? 0);
+        $amount = $commissionPct > 0 ? ($salary * ($commissionPct / 100)) : 0;
+
+        return self::create([
+            'client_id' => $client->id,
+            'type' => 'recruitment',
+            'description' => "Faturamento da Vaga: {$job->title}",
+            'amount' => $amount,
+            'due_date' => now()->addDays(30),
+            'job_id' => $job->id,
+            'candidate_salary' => $salary,
+            'commission_percentage' => $commissionPct,
+            'status' => 'pending',
+        ]);
     }
 }
