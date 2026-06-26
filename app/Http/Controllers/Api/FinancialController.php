@@ -221,6 +221,8 @@ class FinancialController extends Controller
     }
 
     /**
+     * Listar comissões dos recrutadores (Recrutadores veem apenas as suas próprias, Admin vê todas).
+     */
     public function listCommissions(Request $request)
     {
         $isAdmin = Auth::user()->role === 'admin';
