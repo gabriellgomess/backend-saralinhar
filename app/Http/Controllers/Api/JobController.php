@@ -140,6 +140,9 @@ class JobController extends Controller
 
         $job = Job::create($validated);
 
+        // Carrega os valores padrão definidos no banco de dados (ex: is_active=true, approval_status='approved')
+        $job->refresh();
+
         // Auto-criar faturamento se a vaga já estiver ativa/aprovada (ex: criada por Admin)
         if ($job->approval_status !== 'pending' && $job->is_active) {
             try {
