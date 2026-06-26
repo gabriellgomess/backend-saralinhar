@@ -235,6 +235,21 @@ class PlayerReportController extends Controller
     {
         set_time_limit(300);
 
+        // Diagnóstico: se o upload falhou no nível do PHP, registra o motivo exato
+        // antes da validação devolver o genérico "The audio failed to upload.".
+        $rawAudio = $request->file('audio');
+        if (!$rawAudio || !$rawAudio->isValid()) {
+            Log::warning('Falha no upload do áudio do parecer (player)', [
+                'has_file'    => (bool) $rawAudio,
+                'error_code'  => $rawAudio?->getError(),   // 1/2=tamanho, 3=parcial, 6=sem dir temp, 7=falha gravação
+                'size'        => $rawAudio?->getSize(),
+                'client_mime' => $rawAudio?->getClientMimeType(),
+                'post_max'    => ini_get('post_max_size'),
+                'upload_max'  => ini_get('upload_max_filesize'),
+                'tmp_dir'     => ini_get('upload_tmp_dir') ?: sys_get_temp_dir(),
+            ]);
+        }
+
         $request->validate([
             'audio' => 'required|file|mimes:mp3,wav,m4a,webm,ogg',
             'resume' => 'nullable|file|mimes:pdf,docx,doc,txt|max:10240',
