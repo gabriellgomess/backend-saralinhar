@@ -354,6 +354,15 @@ class JobController extends Controller
         $job->is_active = !$job->is_active;
         $job->save();
 
+        // Se a vaga foi ativada e não está pendente, auto-cria o faturamento se necessário
+        if ($job->is_active && $job->approval_status !== 'pending') {
+            try {
+                \App\Models\FinancialTransaction::autoCreateForJob($job);
+            } catch (\Exception $e) {
+                Log::error('Erro ao auto-criar transação financeira para vaga no toggleStatus: ' . $e->getMessage());
+            }
+        }
+
         return response()->json([
             'message' => $job->is_active ? 'Vaga ativada com sucesso' : 'Vaga inativada com sucesso',
             'job' => $job->load(['user:id,name,email', 'category:id,name,slug']),

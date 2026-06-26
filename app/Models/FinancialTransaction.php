@@ -75,8 +75,24 @@ class FinancialTransaction extends Model
         if ($job->user && $job->user->recruitment_client_id) {
             $client = RecruitmentClient::find($job->user->recruitment_client_id);
         }
+        
         if (!$client && $job->company) {
-            $client = RecruitmentClient::where('name', 'like', '%' . $job->company . '%')->first();
+            $companyTrim = strtolower(trim($job->company));
+            
+            // 1. Busca exata (ignorando case e espaços)
+            $client = RecruitmentClient::whereRaw('LOWER(TRIM(name)) = ?', [$companyTrim])->first();
+
+            // 2. Se não encontrar, faz busca substring/bidirecional tolerante
+            if (!$client && $companyTrim !== 'confidencial') {
+                $allClients = RecruitmentClient::all();
+                foreach ($allClients as $c) {
+                    $clientNameClean = strtolower(trim($c->name));
+                    if ($clientNameClean !== '' && (stripos($companyTrim, $clientNameClean) !== false || stripos($clientNameClean, $companyTrim) !== false)) {
+                        $client = $c;
+                        break;
+                    }
+                }
+            }
         }
 
         if (!$client) {
