@@ -221,14 +221,29 @@ class FinancialController extends Controller
     }
 
     /**
-     * Listar comissões dos recrutadores (Recrutadores veem apenas as suas próprias, Admin vê todas).
-     */
     public function listCommissions(Request $request)
     {
         $isAdmin = Auth::user()->role === 'admin';
         $userId = Auth::id();
 
-        $query = FinancialRecruiterCommission::with(['user:id,name', 'transaction.client:id,name']);
+        // Se recrutador, não carregar o campo "amount" (Faturamento Total) da transação para manter confidencialidade
+        if (!$isAdmin) {
+            $query = FinancialRecruiterCommission::with([
+                'user:id,name',
+                'transaction' => function ($q) {
+                    $q->select('id', 'description', 'client_id', 'job_id', 'type', 'due_date');
+                },
+                'transaction.client:id,name',
+                'transaction.job:id,title'
+            ]);
+        } else {
+            $query = FinancialRecruiterCommission::with([
+                'user:id,name',
+                'transaction',
+                'transaction.client:id,name',
+                'transaction.job:id,title'
+            ]);
+        }
 
         if (!$isAdmin) {
             $query->where('user_id', $userId);
@@ -238,6 +253,28 @@ class FinancialController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+
+        // Filtro por cliente (relacionamento transaction)
+        if ($request->filled('client_id')) {
+            $query->whereHas('transaction', function ($q) use ($request) {
+                $q->where('client_id', $request->client_id);
+            });
+        }
+
+        // Filtro por vaga (relacionamento transaction)
+        if ($request->filled('job_id')) {
+            $query->whereHas('transaction', function ($q) use ($request) {
+                $q->where('job_id', $request->job_id);
+            });
+        }
+
+        // Filtro por período (data inicial e final de criacao da comissao)
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
         }
 
         return response()->json($query->orderByDesc('created_at')->paginate($request->input('per_page', 15)), 200);
