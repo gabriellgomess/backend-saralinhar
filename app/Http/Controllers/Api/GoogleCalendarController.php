@@ -116,8 +116,8 @@ class GoogleCalendarController extends Controller
             return response()->json(['message' => 'Google account not connected.'], 400);
         }
 
-        $appUrl = config('app.url') ?? env('APP_URL');
-        if (str_contains($appUrl, 'localhost')) {
+        $appUrl = $request->root();
+        if (str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
             return response()->json([
                 'message' => 'Webhooks cannot be configured from localhost. A public HTTPS URL is required.'
             ], 400);

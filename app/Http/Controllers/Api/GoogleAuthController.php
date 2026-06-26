@@ -95,8 +95,8 @@ class GoogleAuthController extends Controller
             Log::info('Google Account connected successfully', ['user_id' => $userId, 'email' => $googleEmail]);
 
             // Se a URL pública do backend estiver configurada, podemos configurar o Webhook para este calendário
-            $appUrl = config('app.url') ?? env('APP_URL');
-            if (str_contains($appUrl, 'localhost') === false) {
+            $appUrl = $request->root();
+            if (str_contains($appUrl, 'localhost') === false && str_contains($appUrl, '127.0.0.1') === false) {
                 $webhookUrl = rtrim($appUrl, '/') . '/api/webhooks/google-calendar';
                 $this->googleCalendarService->watchEvents($googleAccount, $webhookUrl);
             }
