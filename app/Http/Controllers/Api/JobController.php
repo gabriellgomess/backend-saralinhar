@@ -568,49 +568,69 @@ class JobController extends Controller
             if ($newStage === 'hired') {
                 try {
                     $candidate = $application->candidate;
-                    $client = null;
-                    if ($job->user && $job->user->recruitment_client_id) {
-                        $client = \App\Models\RecruitmentClient::find($job->user->recruitment_client_id);
-                    }
-                    if (!$client && $job->company) {
-                        $client = \App\Models\RecruitmentClient::where('name', 'like', '%' . $job->company . '%')->first();
-                    }
+                    if ($candidate) {
+                        $client = null;
+                        if ($job->user && $job->user->recruitment_client_id) {
+                            $client = \App\Models\RecruitmentClient::find($job->user->recruitment_client_id);
+                        }
+                        if (!$client && $job->company) {
+                            $client = \App\Models\RecruitmentClient::where('name', 'like', '%' . $job->company . '%')->first();
+                        }
 
-                    $commissionPct = $client ? (float) $client->commission_percentage : 0;
-                    $salary = $job->salary ? (float) $job->salary : 0;
-                    $amount = $commissionPct > 0 ? ($salary * ($commissionPct / 100)) : 0;
+                        $commissionPct = $client ? (float) $client->commission_percentage : 0;
+                        $salary = $job->salary ? (float) $job->salary : 0;
+                        $amount = $commissionPct > 0 ? ($salary * ($commissionPct / 100)) : 0;
 
-                    // Busca se já existe um lançamento criado ao abrir a vaga
-                    $transaction = \App\Models\FinancialTransaction::where('job_id', $job->id)->first();
+                        // 1. Verifica se já existe um lançamento para ESTA vaga e ESTE candidato específico para evitar duplicados
+                        $transaction = \App\Models\FinancialTransaction::where('job_id', $job->id)
+                            ->where('candidate_id', $candidate->id)
+                            ->first();
 
-                    if ($transaction) {
-                        $transaction->update([
-                            'candidate_id' => $candidate ? $candidate->id : null,
-                            'candidate_contact' => $candidate ? ($candidate->phone ?? $candidate->email) : null,
-                            'admission_date' => now(),
-                            'warranty_ends_at' => now()->addDays(45),
-                            'description' => "Faturamento da Vaga: {$job->title} - Contratado: " . ($candidate ? $candidate->name : 'N/A'),
-                            'amount' => $amount > 0 ? $amount : $transaction->amount,
-                            'candidate_salary' => $salary > 0 ? $salary : $transaction->candidate_salary,
-                            'commission_percentage' => $commissionPct > 0 ? $commissionPct : $transaction->commission_percentage,
-                        ]);
-                    } else if ($client) {
-                        // Caso não exista (vagas legadas), cria um novo
-                        \App\Models\FinancialTransaction::create([
-                            'client_id' => $client->id,
-                            'type' => 'recruitment',
-                            'description' => "Contratação: " . ($candidate ? $candidate->name : 'Candidato') . " - Vaga: {$job->title}",
-                            'amount' => $amount,
-                            'due_date' => now()->addDays(30),
-                            'admission_date' => now(),
-                            'warranty_ends_at' => now()->addDays(45),
-                            'job_id' => $job->id,
-                            'candidate_id' => $candidate ? $candidate->id : null,
-                            'candidate_contact' => $candidate ? ($candidate->phone ?? $candidate->email) : null,
-                            'candidate_salary' => $salary,
-                            'commission_percentage' => $commissionPct,
-                            'status' => 'pending'
-                        ]);
+                        if ($transaction) {
+                            $transaction->update([
+                                'candidate_contact' => $candidate->phone ?? $candidate->email,
+                                'admission_date' => $transaction->admission_date ?: now(),
+                                'warranty_ends_at' => $transaction->warranty_ends_at ?: now()->addDays(45),
+                                'amount' => $amount > 0 ? $amount : $transaction->amount,
+                                'candidate_salary' => $salary > 0 ? $salary : $transaction->candidate_salary,
+                                'commission_percentage' => $commissionPct > 0 ? $commissionPct : $transaction->commission_percentage,
+                            ]);
+                        } else {
+                            // 2. Se não existe faturamento para este candidato, tenta achar um rascunho de faturamento da vaga sem candidato associado
+                            $emptyTransaction = \App\Models\FinancialTransaction::where('job_id', $job->id)
+                                ->whereNull('candidate_id')
+                                ->first();
+
+                            if ($emptyTransaction) {
+                                $emptyTransaction->update([
+                                    'candidate_id' => $candidate->id,
+                                    'candidate_contact' => $candidate->phone ?? $candidate->email,
+                                    'admission_date' => now(),
+                                    'warranty_ends_at' => now()->addDays(45),
+                                    'description' => "Faturamento da Vaga: {$job->title} - Contratado: {$candidate->name}",
+                                    'amount' => $amount > 0 ? $amount : $emptyTransaction->amount,
+                                    'candidate_salary' => $salary > 0 ? $salary : $emptyTransaction->candidate_salary,
+                                    'commission_percentage' => $commissionPct > 0 ? $commissionPct : $emptyTransaction->commission_percentage,
+                                ]);
+                            } else if ($client) {
+                                // 3. Se todos os faturamentos existentes já possuem contratado, cria um novo faturamento bruto para o candidato adicional
+                                \App\Models\FinancialTransaction::create([
+                                    'client_id' => $client->id,
+                                    'type' => 'recruitment',
+                                    'description' => "Faturamento da Vaga: {$job->title} - Contratado: {$candidate->name}",
+                                    'amount' => $amount,
+                                    'due_date' => now()->addDays(30),
+                                    'admission_date' => now(),
+                                    'warranty_ends_at' => now()->addDays(45),
+                                    'job_id' => $job->id,
+                                    'candidate_id' => $candidate->id,
+                                    'candidate_contact' => $candidate->phone ?? $candidate->email,
+                                    'candidate_salary' => $salary,
+                                    'commission_percentage' => $commissionPct,
+                                    'status' => 'pending'
+                                ]);
+                            }
+                        }
                     }
                 } catch (\Exception $e) {
                     Log::error('Erro ao auto-criar/atualizar rascunho financeiro: ' . $e->getMessage());
