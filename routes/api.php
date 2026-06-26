@@ -13,6 +13,9 @@ use App\Http\Controllers\Api\CultureFitTestTokenController;
 use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\AssessmentBuilderController;
 use App\Http\Controllers\Api\AssessmentPublicController;
+use App\Http\Controllers\Api\GoogleAuthController;
+use App\Http\Controllers\Api\GoogleCalendarController;
+use App\Http\Controllers\Api\GoogleWebhookController;
 use App\Http\Controllers\RecruitmentClientController;
 use App\Http\Controllers\RecruitmentActivityController;
 use App\Http\Middleware\ValidateDiscToken;
@@ -23,6 +26,10 @@ use Illuminate\Support\Facades\Route;
 // Rotas públicas
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+
+// Rotas públicas do Google Agenda
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+Route::post('/webhooks/google-calendar', [GoogleWebhookController::class, 'handle']);
 
 // Rotas públicas de vagas (feed)
 Route::get('/jobs', [JobController::class, 'index']);
@@ -293,6 +300,15 @@ Route::middleware('auth:sanctum')->group(function () {
             });
         });
     });
+
+    // Rotas do Google Agenda
+    Route::prefix('google-calendar')->group(function () {
+        Route::get('/status', [GoogleCalendarController::class, 'status']);
+        Route::get('/events', [GoogleCalendarController::class, 'events']);
+        Route::delete('/disconnect', [GoogleCalendarController::class, 'disconnect']);
+        Route::post('/watch', [GoogleCalendarController::class, 'watch']);
+    });
+    Route::get('/auth/google/url', [GoogleAuthController::class, 'getAuthUrl']);
 });
 
 // ============================================================

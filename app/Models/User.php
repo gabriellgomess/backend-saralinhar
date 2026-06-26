@@ -59,4 +59,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(\App\Models\RecruitmentClient::class, 'recruitment_client_id');
     }
+
+    public function googleAccount()
+    {
+        return $this->hasOne(GoogleAccount::class);
+    }
 }
