@@ -158,6 +158,8 @@ class FinancialController extends Controller
 
         $transaction = FinancialTransaction::findOrFail($id);
         $validated = $request->validate([
+            'client_id' => 'sometimes|required|exists:recruitment_clients,id',
+            'type' => 'sometimes|required|in:recruitment,service',
             'description' => 'sometimes|required|string|max:255',
             'amount' => 'sometimes|required|numeric|min:0',
             'due_date' => 'sometimes|required|date',
@@ -166,10 +168,12 @@ class FinancialController extends Controller
             'is_warranty_replacement' => 'nullable|boolean',
             'status' => 'sometimes|required|in:pending,paid,cancelled',
             'payment_date' => 'nullable|date',
+            'job_id' => 'nullable|exists:job_listings,id',
             'candidate_id' => 'nullable|exists:candidates,id',
             'candidate_contact' => 'nullable|string|max:255',
             'candidate_salary' => 'nullable|numeric',
             'commission_percentage' => 'nullable|numeric',
+            'financial_service_id' => 'nullable|exists:financial_services,id',
             'recruiters' => 'nullable|array',
             'recruiters.*.user_id' => 'required|exists:users,id',
             'recruiters.*.amount' => 'required|numeric|min:0',
