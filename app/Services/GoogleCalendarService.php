@@ -129,15 +129,17 @@ class GoogleCalendarService
     /**
      * Lists events from the primary calendar.
      */
-    public function listEvents(GoogleAccount $googleAccount, ?string $timeMin = null, ?string $timeMax = null, int $maxResults = 250): array
+    public function listEvents(GoogleAccount $googleAccount, ?string $timeMin = null, ?string $timeMax = null, int $maxResults = 2500): array
     {
         try {
             $accessToken = $this->getFreshAccessToken($googleAccount);
 
+            // maxResults é o limite POR PÁGINA (a API do Google aceita até 2500).
+            // Sem paginar, dias muito cheios eram cortados ao atingir a cota.
             $params = [
                 'singleEvents' => 'true',
                 'orderBy' => 'startTime',
-                'maxResults' => $maxResults,
+                'maxResults' => min($maxResults, 2500),
             ];
 
             if ($timeMin) {
@@ -154,18 +156,39 @@ class GoogleCalendarService
                 $params['timeMax'] = now()->addMonths(3)->toRfc3339String();
             }
 
-            $response = Http::withToken($accessToken)->get('https://www.googleapis.com/calendar/v3/calendars/primary/events', $params);
+            $events = [];
+            $pageToken = null;
+            $pageCount = 0;
 
-            if ($response->failed()) {
-                Log::error('Failed to fetch events from Google Calendar API', [
-                    'account_id' => $googleAccount->id,
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-                return [];
-            }
+            // Pagina seguindo o nextPageToken até trazer TODOS os eventos do período.
+            // Limite de segurança de 20 páginas (até 50k eventos) para evitar loop infinito.
+            do {
+                $pageParams = $params;
+                if ($pageToken) {
+                    $pageParams['pageToken'] = $pageToken;
+                }
 
-            return $response->json('items') ?? [];
+                $response = Http::withToken($accessToken)->get('https://www.googleapis.com/calendar/v3/calendars/primary/events', $pageParams);
+
+                if ($response->failed()) {
+                    Log::error('Failed to fetch events from Google Calendar API', [
+                        'account_id' => $googleAccount->id,
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                        'page' => $pageCount,
+                    ]);
+                    // Retorna o que já foi coletado em vez de descartar tudo.
+                    return $events;
+                }
+
+                $items = $response->json('items') ?? [];
+                $events = array_merge($events, $items);
+
+                $pageToken = $response->json('nextPageToken');
+                $pageCount++;
+            } while ($pageToken && $pageCount < 20);
+
+            return $events;
         } catch (\Exception $e) {
             Log::error('Exception in GoogleCalendarService::listEvents: ' . $e->getMessage());
             return [];
