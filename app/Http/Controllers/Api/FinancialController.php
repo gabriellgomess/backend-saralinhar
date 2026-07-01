@@ -72,7 +72,7 @@ class FinancialController extends Controller
             return response()->json(['message' => 'Acesso negado'], 403);
         }
 
-        $query = FinancialTransaction::with(['client:id,name', 'job:id,title', 'candidate:id,name', 'recruiterCommissions.user:id,name']);
+        $query = FinancialTransaction::with(['client:id,name', 'job:id,title,address', 'candidate:id,name', 'recruiterCommissions.user:id,name']);
 
         if ($request->filled('client_id')) {
             $query->where('client_id', $request->client_id);
@@ -82,6 +82,11 @@ class FinancialController extends Controller
         }
         if ($request->filled('type')) {
             $query->where('type', $request->type);
+        }
+        if ($request->filled('city')) {
+            $query->whereHas('job', function ($q) use ($request) {
+                $q->where('address', 'like', '%' . $request->city . '%');
+            });
         }
 
         return response()->json($query->orderByDesc('due_date')->paginate($request->input('per_page', 15)), 200);
