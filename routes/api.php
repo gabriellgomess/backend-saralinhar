@@ -43,6 +43,11 @@ Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/interview/areas', [\App\Http\Controllers\Api\InterviewContentController::class, 'areas']);
 Route::get('/interview/areas/{id}/questions', [\App\Http\Controllers\Api\InterviewContentController::class, 'questions']);
 
+// Auth do app EntrevistaPro AI (sem Turnstile, protegido por throttle)
+Route::post('/app/login', [\App\Http\Controllers\Api\AppAuthController::class, 'login'])->middleware('throttle:5,1');
+Route::post('/app/forgot-password', [\App\Http\Controllers\Api\AppAuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+Route::post('/app/reset-password', [\App\Http\Controllers\Api\AppAuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+
 // Rota pública para upload de currículo (ANTIGO - será deprecado)
 Route::post('/resumes', [ResumeController::class, 'store']);
 
@@ -92,6 +97,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::put('/categories/{id}', [CategoryController::class, 'update']);
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+    });
+
+    // EntrevistaPro AI — rotas do candidato no app
+    Route::prefix('app')->middleware('block_roles:client,company,operational')->group(function () {
+        Route::get('/profile', [\App\Http\Controllers\Api\AppProfileController::class, 'show']);
+        Route::put('/profile', [\App\Http\Controllers\Api\AppProfileController::class, 'update']);
+        Route::get('/applications', [\App\Http\Controllers\Api\AppApplicationController::class, 'index']);
+        Route::post('/applications', [\App\Http\Controllers\Api\AppApplicationController::class, 'store']);
+        Route::put('/applications/{id}', [\App\Http\Controllers\Api\AppApplicationController::class, 'update']);
+        Route::delete('/applications/{id}', [\App\Http\Controllers\Api\AppApplicationController::class, 'destroy']);
     });
 
     // EntrevistaPro AI — gerenciamento de áreas e perguntas (painel do site)

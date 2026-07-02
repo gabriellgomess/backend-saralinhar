@@ -17,6 +17,14 @@ class Candidate extends Model
         'file_path',
         'file_original_name',
         'status',
+        // Campos do app EntrevistaPro AI
+        'user_id',
+        'desired_role',
+        'work_mode',
+        'education',
+        'skills',
+        'salary_expectation',
+        'summary',
     ];
 
     protected $casts = [
