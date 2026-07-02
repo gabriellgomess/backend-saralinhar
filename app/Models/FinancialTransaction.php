@@ -22,7 +22,8 @@ class FinancialTransaction extends Model
         'candidate_contact',
         'candidate_salary',
         'commission_percentage',
-        'financial_service_id'
+        'financial_service_id',
+        'notes'
     ];
 
     protected $casts = [
