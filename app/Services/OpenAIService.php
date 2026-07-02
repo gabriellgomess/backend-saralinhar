@@ -1897,7 +1897,7 @@ NÃO use blocos de código markdown ou explicações externas no início ou fim.
                 "Sua tarefa é avaliar a resposta de um candidato a uma determinada pergunta de entrevista.\n" .
                 "Você deve retornar a análise em formato JSON estrito, seguindo exatamente esta estrutura:\n" .
                 "{\n" .
-                "  \"score\": 85, // Uma pontuação inteira de 0 a 100\n" .
+                "  \"score\": 85,\n" .
                 "  \"criteria\": [\n" .
                 "    { \"label\": \"Clareza\", \"score\": 90 },\n" .
                 "    { \"label\": \"Alinhamento Técnico\", \"score\": 80 },\n" .
@@ -1913,6 +1913,7 @@ NÃO use blocos de código markdown ou explicações externas no início ou fim.
                 "  ],\n" .
                 "  \"improvedAnswer\": \"Aqui está uma versão reescrita e otimizada da resposta do candidato, servindo como modelo ideal.\"\n" .
                 "}\n" .
+                "As notas (score) geral e dos critérios devem ser inteiros entre 0 e 100.\n" .
                 "Responda estritamente com o objeto JSON. Não adicione qualquer markdown, bloco de código, ou texto adicional além do JSON.";
 
             $userPrompt = "Pergunta da Entrevista:\n{$question}\n\nResposta do Candidato:\n{$answer}";
@@ -1932,7 +1933,7 @@ NÃO use blocos de código markdown ou explicações externas no início ou fim.
                         'content' => $userPrompt
                     ]
                 ],
-                'max_completion_tokens' => 2000,
+                'max_completion_tokens' => 4000,
                 'response_format' => ['type' => 'json_object'],
             ]);
 
