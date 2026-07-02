@@ -39,6 +39,10 @@ Route::get('/jobs/{id}', [JobController::class, 'show']);
 // Rotas públicas de categorias
 Route::get('/categories', [CategoryController::class, 'index']);
 
+// Rotas públicas do EntrevistaPro AI (app mobile)
+Route::get('/interview/areas', [\App\Http\Controllers\Api\InterviewContentController::class, 'areas']);
+Route::get('/interview/areas/{id}/questions', [\App\Http\Controllers\Api\InterviewContentController::class, 'questions']);
+
 // Rota pública para upload de currículo (ANTIGO - será deprecado)
 Route::post('/resumes', [ResumeController::class, 'store']);
 
@@ -88,6 +92,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::put('/categories/{id}', [CategoryController::class, 'update']);
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+    });
+
+    // EntrevistaPro AI — gerenciamento de áreas e perguntas (painel do site)
+    Route::prefix('interview/admin')->middleware('block_roles:client,candidate,company')->group(function () {
+        Route::get('/areas', [\App\Http\Controllers\Api\InterviewContentController::class, 'areasAll']);
+        Route::post('/areas', [\App\Http\Controllers\Api\InterviewContentController::class, 'storeArea']);
+        Route::put('/areas/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'updateArea']);
+        Route::delete('/areas/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'destroyArea']);
+        Route::get('/questions', [\App\Http\Controllers\Api\InterviewContentController::class, 'questionsAll']);
+        Route::post('/questions', [\App\Http\Controllers\Api\InterviewContentController::class, 'storeQuestion']);
+        Route::put('/questions/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'updateQuestion']);
+        Route::delete('/questions/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'destroyQuestion']);
     });
 
     // Currículos ANTIGOS (apenas admin autenticado) - será deprecado
