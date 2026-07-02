@@ -247,7 +247,7 @@ class FinancialController extends Controller
             $query = FinancialRecruiterCommission::with([
                 'user:id,name',
                 'transaction' => function ($q) {
-                    $q->select('id', 'description', 'client_id', 'job_id', 'type', 'due_date');
+                    $q->select('id', 'description', 'client_id', 'job_id', 'type', 'due_date', 'status', 'payment_date');
                 },
                 'transaction.client:id,name',
                 'transaction.job:id,title'
