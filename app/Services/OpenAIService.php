@@ -1956,5 +1956,63 @@ NÃO use blocos de código markdown ou explicações externas no início ou fim.
             return null;
         }
     }
+
+    /**
+     * Analisa o currículo e extrai campos detalhados para o perfil profissional do app.
+     */
+    public function analyzeProfileResume(string $resumeContent): ?array
+    {
+        $t0 = microtime(true);
+        try {
+            $systemPrompt = "Você é um recrutador e especialista em análise de currículos.\n" .
+                "Sua tarefa é analisar o texto de um currículo e extrair informações estruturadas para o perfil do candidato.\n" .
+                "Você deve retornar a análise em formato JSON estrito, seguindo exatamente esta estrutura:\n" .
+                "{\n" .
+                "  \"professional_area\": \"[Ex: Tecnologia, Vendas, Administrativo, Saúde, etc]\",\n" .
+                "  \"desired_role\": \"[Cargo desejado ou principal cargo exercido, ex: Desenvolvedor Front-end, Auxiliar Administrativo, etc]\",\n" .
+                "  \"city\": \"[Cidade do candidato se mencionada - apenas o nome da cidade, sem o estado, ou null se não encontrada]\",\n" .
+                "  \"qualifications_summary\": \"[Breve resumo da trajetória profissional e realizações do candidato em 2-3 frases]\",\n" .
+                "  \"education\": \"[Formação acadêmica principal resumida, ex: Graduação em Administração (USP, 2022)]\",\n" .
+                "  \"skills\": \"[Principais competências/tecnologias separadas por vírgula, ex: Excel, Atendimento, Organização]\",\n" .
+                "  \"summary\": \"[Apresentação pessoal/resumo profissional conciso]\"\n" .
+                "}\n" .
+                "Responda estritamente com o objeto JSON. Não adicione qualquer markdown, bloco de código, ou texto adicional além do JSON.";
+
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(90)->post($this->apiUrl, [
+                'model' => $this->modelResumeAnalysis,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => $systemPrompt
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => "Extraia as informações do seguinte currículo:\n\n" . $resumeContent
+                    ]
+                ],
+                'max_completion_tokens' => 3000,
+                'response_format' => ['type' => 'json_object'],
+            ]);
+
+            $this->recordUsage(OpenAIUsageLog::FEATURE_RESUME_ANALYSIS, $this->modelResumeAnalysis, 'chat.completions', $t0, $response);
+
+            if ($response->successful()) {
+                $content = $response->json()['choices'][0]['message']['content'];
+                return json_decode($content, true);
+            }
+
+            Log::error('Erro ao analisar currículo de perfil na OpenAI', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            return null;
+        } catch (\Throwable $e) {
+            Log::error('Exception ao analisar currículo de perfil na OpenAI: ' . $e->getMessage());
+            return null;
+        }
+    }
 }
 

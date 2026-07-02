@@ -49,6 +49,63 @@ class AppProfileController extends Controller
     }
 
     /**
+     * Analisa o currículo enviado pelo app e preenche os dados do perfil.
+     */
+    public function analyzeResume(Request $request)
+    {
+        $request->validate([
+            'resume' => 'required|file|max:5120|mimes:pdf,docx,txt', // máx 5MB
+        ]);
+
+        try {
+            $file = $request->file('resume');
+            $path = $file->store('temp_resumes');
+            $fullPath = \Illuminate\Support\Facades\Storage::path($path);
+
+            $openAIService = app(\App\Services\OpenAIService::class);
+            $text = $openAIService->extractTextFromFile($fullPath);
+
+            \Illuminate\Support\Facades\Storage::delete($path);
+
+            if (!$text || empty(trim($text))) {
+                return response()->json([
+                    'message' => 'Não foi possível extrair o texto do arquivo. Certifique-se de que é um documento legível.',
+                ], 422);
+            }
+
+            $analysis = $openAIService->analyzeProfileResume($text);
+
+            if (!$analysis) {
+                return response()->json([
+                    'message' => 'Não foi possível processar a análise do currículo. Tente novamente mais tarde.',
+                ], 502);
+            }
+
+            $candidate = $this->resolveCandidate($request->user());
+            $candidate->update([
+                'professional_area' => $analysis['professional_area'] ?? $candidate->professional_area,
+                'desired_role' => $analysis['desired_role'] ?? $candidate->desired_role,
+                'city' => $analysis['city'] ?? $candidate->city,
+                'qualifications_summary' => $analysis['qualifications_summary'] ?? $candidate->qualifications_summary,
+                'education' => $analysis['education'] ?? $candidate->education,
+                'skills' => $analysis['skills'] ?? $candidate->skills,
+                'summary' => $analysis['summary'] ?? $candidate->summary,
+            ]);
+
+            return response()->json([
+                'message' => 'Currículo analisado com sucesso!',
+                'data' => $candidate->fresh(),
+            ], 200);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Erro ao analisar currículo no app: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Falha ao processar o arquivo. Tente novamente.',
+            ], 500);
+        }
+    }
+
+    /**
      * Encontra (ou cria) o Candidate do usuário logado.
      * Vincula por user_id; se não houver, adota o registro existente com o
      * mesmo e-mail (evita duplicar candidatos já presentes no banco do site).

@@ -104,6 +104,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('app')->middleware('block_roles:client,company,operational')->group(function () {
         Route::get('/profile', [\App\Http\Controllers\Api\AppProfileController::class, 'show']);
         Route::put('/profile', [\App\Http\Controllers\Api\AppProfileController::class, 'update']);
+        Route::post('/profile/resume', [\App\Http\Controllers\Api\AppProfileController::class, 'analyzeResume']);
         Route::get('/applications', [\App\Http\Controllers\Api\AppApplicationController::class, 'index']);
         Route::post('/applications', [\App\Http\Controllers\Api\AppApplicationController::class, 'store']);
         Route::put('/applications/{id}', [\App\Http\Controllers\Api\AppApplicationController::class, 'update']);
