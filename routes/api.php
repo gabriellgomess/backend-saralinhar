@@ -42,6 +42,7 @@ Route::get('/categories', [CategoryController::class, 'index']);
 // Rotas públicas do EntrevistaPro AI (app mobile)
 Route::get('/interview/areas', [\App\Http\Controllers\Api\InterviewContentController::class, 'areas']);
 Route::get('/interview/areas/{id}/questions', [\App\Http\Controllers\Api\InterviewContentController::class, 'questions']);
+Route::get('/interview/tips', [\App\Http\Controllers\Api\InterviewContentController::class, 'tips']);
 
 // Auth do app EntrevistaPro AI (sem Turnstile, protegido por throttle)
 Route::post('/app/login', [\App\Http\Controllers\Api\AppAuthController::class, 'login'])->middleware('throttle:5,1');
@@ -107,6 +108,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/applications', [\App\Http\Controllers\Api\AppApplicationController::class, 'store']);
         Route::put('/applications/{id}', [\App\Http\Controllers\Api\AppApplicationController::class, 'update']);
         Route::delete('/applications/{id}', [\App\Http\Controllers\Api\AppApplicationController::class, 'destroy']);
+        Route::post('/interview/evaluate', [\App\Http\Controllers\Api\AppInterviewController::class, 'evaluateText'])->middleware('throttle:20,1');
+        Route::post('/interview/evaluate-audio', [\App\Http\Controllers\Api\AppInterviewController::class, 'evaluateAudio'])->middleware('throttle:20,1');
+        Route::get('/dashboard', [\App\Http\Controllers\Api\AppInterviewController::class, 'dashboard']);
+        Route::get('/interview/attempts', [\App\Http\Controllers\Api\AppInterviewController::class, 'history']);
     });
 
     // EntrevistaPro AI — gerenciamento de áreas e perguntas (painel do site)
@@ -119,6 +124,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/questions', [\App\Http\Controllers\Api\InterviewContentController::class, 'storeQuestion']);
         Route::put('/questions/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'updateQuestion']);
         Route::delete('/questions/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'destroyQuestion']);
+        Route::get('/tips', [\App\Http\Controllers\Api\InterviewContentController::class, 'tipsAll']);
+        Route::post('/tips', [\App\Http\Controllers\Api\InterviewContentController::class, 'storeTip']);
+        Route::put('/tips/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'updateTip']);
+        Route::delete('/tips/{id}', [\App\Http\Controllers\Api\InterviewContentController::class, 'destroyTip']);
     });
 
     // Currículos ANTIGOS (apenas admin autenticado) - será deprecado

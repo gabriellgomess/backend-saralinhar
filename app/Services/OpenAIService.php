@@ -1885,5 +1885,75 @@ NÃO use blocos de código markdown ou explicações externas no início ou fim.
     {
         return "Estrutura JSON Player:\n" . json_encode($this->getDefaultPlayerStructure(), JSON_UNESCAPED_UNICODE);
     }
+
+    /**
+     * Avalia a resposta de uma pergunta de entrevista usando a OpenAI.
+     */
+    public function evaluateInterviewAnswer(string $question, string $answer): ?array
+    {
+        $t0 = microtime(true);
+        try {
+            $systemPrompt = "Você é um especialista em recrutamento, seleção e treinamento de profissionais. " .
+                "Sua tarefa é avaliar a resposta de um candidato a uma determinada pergunta de entrevista.\n" .
+                "Você deve retornar a análise em formato JSON estrito, seguindo exatamente esta estrutura:\n" .
+                "{\n" .
+                "  \"score\": 85, // Uma pontuação inteira de 0 a 100\n" .
+                "  \"criteria\": [\n" .
+                "    { \"label\": \"Clareza\", \"score\": 90 },\n" .
+                "    { \"label\": \"Alinhamento Técnico\", \"score\": 80 },\n" .
+                "    { \"label\": \"Estruturação (STAR)\", \"score\": 85 }\n" .
+                "  ],\n" .
+                "  \"positives\": [\n" .
+                "    \"Demonstrou boa capacidade analítica.\",\n" .
+                "    \"Mencionou resultados quantitativos claros.\"\n" .
+                "  ],\n" .
+                "  \"improvements\": [\n" .
+                "    \"Poderia ter detalhado melhor as ferramentas utilizadas.\",\n" .
+                "    \"Tente estruturar a resposta no formato Situação-Tarefa-Ação-Resultado (STAR).\"\n" .
+                "  ],\n" .
+                "  \"improvedAnswer\": \"Aqui está uma versão reescrita e otimizada da resposta do candidato, servindo como modelo ideal.\"\n" .
+                "}\n" .
+                "Responda estritamente com o objeto JSON. Não adicione qualquer markdown, bloco de código, ou texto adicional além do JSON.";
+
+            $userPrompt = "Pergunta da Entrevista:\n{$question}\n\nResposta do Candidato:\n{$answer}";
+
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(90)->post($this->apiUrl, [
+                'model' => $this->modelValidation,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => $systemPrompt
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $userPrompt
+                    ]
+                ],
+                'max_completion_tokens' => 2000,
+                'response_format' => ['type' => 'json_object'],
+            ]);
+
+            $this->recordUsage(OpenAIUsageLog::FEATURE_INTERVIEW_EVALUATION, $this->modelValidation, 'chat.completions', $t0, $response);
+
+            if ($response->successful()) {
+                $content = $response->json()['choices'][0]['message']['content'];
+                return json_decode($content, true);
+            }
+
+            Log::error('Erro ao avaliar resposta na OpenAI', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            return null;
+
+        } catch (\Exception $e) {
+            $this->recordUsage(OpenAIUsageLog::FEATURE_INTERVIEW_EVALUATION, $this->modelValidation, 'chat.completions', $t0, null, [], $e);
+            Log::error('Exception ao avaliar resposta na OpenAI: ' . $e->getMessage());
+            return null;
+        }
+    }
 }
 

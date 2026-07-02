@@ -261,4 +261,108 @@ class InterviewContentController extends Controller
             'message' => 'Pergunta deletada com sucesso',
         ], 200);
     }
+
+    // =========================================================
+    // DICAS RÁPIDAS (TIPS)
+    // =========================================================
+
+    /**
+     * Lista dicas ativas (público)
+     */
+    public function tips()
+    {
+        $tips = \App\Models\InterviewTip::where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'category', 'text']);
+
+        return response()->json([
+            'message' => 'Dicas recuperadas com sucesso',
+            'data' => $tips,
+        ], 200);
+    }
+
+    /**
+     * Lista todas as dicas (admin)
+     */
+    public function tipsAll()
+    {
+        $tips = \App\Models\InterviewTip::orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        return response()->json([
+            'message' => 'Dicas recuperadas com sucesso',
+            'data' => $tips,
+        ], 200);
+    }
+
+    public function storeTip(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'category' => 'required|string|max:100',
+                'text' => 'required|string|max:5000',
+                'is_active' => 'boolean',
+                'sort_order' => 'integer|min:0',
+            ]);
+
+            $tip = \App\Models\InterviewTip::create($validated);
+
+            return response()->json([
+                'message' => 'Dica criada com sucesso',
+                'data' => $tip,
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Erro de validação',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+    }
+
+    public function updateTip(Request $request, $id)
+    {
+        $tip = \App\Models\InterviewTip::find($id);
+
+        if (!$tip) {
+            return response()->json(['message' => 'Dica não encontrada'], 404);
+        }
+
+        try {
+            $validated = $request->validate([
+                'category' => 'sometimes|required|string|max:100',
+                'text' => 'sometimes|required|string|max:5000',
+                'is_active' => 'boolean',
+                'sort_order' => 'integer|min:0',
+            ]);
+
+            $tip->update($validated);
+
+            return response()->json([
+                'message' => 'Dica atualizada com sucesso',
+                'data' => $tip,
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Erro de validação',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+    }
+
+    public function destroyTip($id)
+    {
+        $tip = \App\Models\InterviewTip::find($id);
+
+        if (!$tip) {
+            return response()->json(['message' => 'Dica não encontrada'], 404);
+        }
+
+        $tip->delete();
+
+        return response()->json([
+            'message' => 'Dica deletada com sucesso',
+        ], 200);
+    }
 }

@@ -53,6 +53,7 @@ class OpenAIUsageLog extends Model
     const FEATURE_CULTURE_FIT_ANALYSIS = 'culture_fit_analysis';
     const FEATURE_CONTACT_EXTRACTION = 'contact_extraction';
     const FEATURE_ASSESSMENT_ANALYSIS = 'assessment_analysis';
+    const FEATURE_INTERVIEW_EVALUATION = 'interview_evaluation';
 
     const STATUS_SUCCESS = 'success';
     const STATUS_ERROR = 'error';
