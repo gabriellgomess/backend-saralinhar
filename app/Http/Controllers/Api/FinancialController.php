@@ -106,7 +106,8 @@ class FinancialController extends Controller
             'type' => 'required|in:recruitment,service',
             'description' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0',
-            'due_date' => 'required|date',
+            'due_date' => 'nullable|date',
+            'payment_date' => 'nullable|date',
             'admission_date' => 'nullable|date',
             'warranty_ends_at' => 'nullable|date',
             'is_warranty_replacement' => 'nullable|boolean',
@@ -121,6 +122,10 @@ class FinancialController extends Controller
             'recruiters.*.amount' => 'required|numeric|min:0',
             'recruiters.*.percentage' => 'nullable|numeric|min:0|max:100',
         ]);
+
+        if (empty($validated['due_date'])) {
+            $validated['due_date'] = $validated['payment_date'] ?? now()->toDateString();
+        }
 
         return DB::transaction(function () use ($validated) {
             $transaction = FinancialTransaction::create($validated);
@@ -167,7 +172,7 @@ class FinancialController extends Controller
             'type' => 'sometimes|required|in:recruitment,service',
             'description' => 'sometimes|required|string|max:255',
             'amount' => 'sometimes|required|numeric|min:0',
-            'due_date' => 'sometimes|required|date',
+            'due_date' => 'nullable|date',
             'admission_date' => 'nullable|date',
             'warranty_ends_at' => 'nullable|date',
             'is_warranty_replacement' => 'nullable|boolean',
@@ -184,6 +189,10 @@ class FinancialController extends Controller
             'recruiters.*.amount' => 'required|numeric|min:0',
             'recruiters.*.percentage' => 'nullable|numeric|min:0|max:100',
         ]);
+
+        if (array_key_exists('due_date', $validated) && empty($validated['due_date'])) {
+            $validated['due_date'] = $validated['payment_date'] ?? $transaction->payment_date ?? now()->toDateString();
+        }
 
         return DB::transaction(function () use ($transaction, $validated) {
             $transaction->update($validated);
@@ -278,13 +287,29 @@ class FinancialController extends Controller
 
         // Filtro por período (data inicial e final de criacao da comissao)
         if ($request->filled('start_date')) {
-            $query->whereDate('created_at', '>=', $request->start_date);
+            $query->where(function ($q) use ($request) {
+                $q->where(function ($sub) use ($request) {
+                    $sub->where('status', 'paid')
+                        ->whereDate('payment_date', '>=', $request->start_date);
+                })->orWhere(function ($sub) use ($request) {
+                    $sub->where('status', '!=', 'paid')
+                        ->whereDate('created_at', '>=', $request->start_date);
+                });
+            });
         }
         if ($request->filled('end_date')) {
-            $query->whereDate('created_at', '<=', $request->end_date);
+            $query->where(function ($q) use ($request) {
+                $q->where(function ($sub) use ($request) {
+                    $sub->where('status', 'paid')
+                        ->whereDate('payment_date', '<=', $request->end_date);
+                })->orWhere(function ($sub) use ($request) {
+                    $sub->where('status', '!=', 'paid')
+                        ->whereDate('created_at', '<=', $request->end_date);
+                });
+            });
         }
 
-        return response()->json($query->orderByDesc('created_at')->paginate($request->input('per_page', 15)), 200);
+        return response()->json($query->orderByRaw('COALESCE(payment_date, created_at) DESC')->paginate($request->input('per_page', 15)), 200);
     }
 
     /**
