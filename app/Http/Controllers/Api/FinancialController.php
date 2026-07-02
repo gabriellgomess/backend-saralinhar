@@ -198,23 +198,21 @@ class FinancialController extends Controller
             $transaction->update($validated);
 
             if (isset($validated['recruiters'])) {
-                // Remove as comissões anteriores e cria as novas atualizadas
+                // Preserva os status e datas de pagamento das comissões existentes
+                $existingStatuses = $transaction->recruiterCommissions()->pluck('status', 'user_id')->toArray();
+                $existingPaymentDates = $transaction->recruiterCommissions()->pluck('payment_date', 'user_id')->toArray();
+
                 $transaction->recruiterCommissions()->delete();
                 foreach ($validated['recruiters'] as $recruiter) {
+                    $uId = $recruiter['user_id'];
                     $transaction->recruiterCommissions()->create([
-                        'user_id' => $recruiter['user_id'],
+                        'user_id' => $uId,
                         'amount' => $recruiter['amount'],
                         'percentage' => $recruiter['percentage'] ?? null,
-                        'status' => $transaction->status === 'paid' ? 'paid' : 'pending',
-                        'payment_date' => $transaction->status === 'paid' ? ($transaction->payment_date ?: now()) : null
+                        'status' => $existingStatuses[$uId] ?? 'pending',
+                        'payment_date' => $existingPaymentDates[$uId] ?? null
                     ]);
                 }
-            } else if ($transaction->wasChanged('status') && $transaction->status === 'paid') {
-                // Se a transação foi paga e as comissões não foram enviadas novamente, marca as comissões como pagas
-                $transaction->recruiterCommissions()->update([
-                    'status' => 'paid',
-                    'payment_date' => $transaction->payment_date ?: now()
-                ]);
             }
 
             return response()->json($transaction->load('recruiterCommissions.user'), 200);
